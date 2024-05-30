@@ -13,21 +13,21 @@ const (
 )
 
 type sliceMarshaller interface {
-	MarshalEnv(prefix string) []EnvVal
+	MarshalEnv(prefix string) []Node
 }
 
-func MarshalEnv(in any) []EnvVal {
+func MarshalEnv(in any) []Node {
 	return marshal("", reflect.ValueOf(in))
 }
 
-func MarshalEnvWithPrefix(prefix string, in any) []EnvVal {
+func MarshalEnvWithPrefix(prefix string, in any) []Node {
 	return marshal(prefix, reflect.ValueOf(in))
 }
 
-func marshal(prefix string, ref reflect.Value) []EnvVal {
+func marshal(prefix string, ref reflect.Value) []Node {
 	prefix = strings.ToUpper(prefix)
 
-	res := make([]EnvVal, 0)
+	res := make([]Node, 0)
 	switch ref.Kind() {
 	case reflect.Slice:
 		res = append(res, marshalSlice(prefix, ref)...)
@@ -41,7 +41,7 @@ func marshal(prefix string, ref reflect.Value) []EnvVal {
 		res = append(res, marshalStruct(prefix, ref.Elem())...)
 	case reflect.String, reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		res = append(res, EnvVal{
+		res = append(res, Node{
 			Name:  prefix,
 			Value: ref.Interface(),
 		})
@@ -52,14 +52,14 @@ func marshal(prefix string, ref reflect.Value) []EnvVal {
 	return res
 }
 
-func marshalSlice(prefix string, ref reflect.Value) []EnvVal {
+func marshalSlice(prefix string, ref reflect.Value) []Node {
 	if ref.Len() == 0 {
 		return nil
 	}
 
 	tp := ref.Index(0).Kind()
 
-	var marshaller func(prefix string, ref reflect.Value) []EnvVal
+	var marshaller func(prefix string, ref reflect.Value) []Node
 	switch {
 	case tp == reflect.Struct:
 
@@ -75,7 +75,7 @@ func marshalSlice(prefix string, ref reflect.Value) []EnvVal {
 			panic("Slices of non basic type require sliceMarshaller to be implemented")
 		}
 
-		marshaller = func(prefix string, ref reflect.Value) []EnvVal {
+		marshaller = func(prefix string, ref reflect.Value) []Node {
 			return customMarshaller.MarshalEnv(prefix)
 		}
 
@@ -88,8 +88,8 @@ func marshalSlice(prefix string, ref reflect.Value) []EnvVal {
 	return marshaller(prefix, ref)
 }
 
-func marshallSliceOfBasicType(prefix string, ref reflect.Value) []EnvVal {
-	out := make([]EnvVal, 1)
+func marshallSliceOfBasicType(prefix string, ref reflect.Value) []Node {
+	out := make([]Node, 1)
 	outStr := make([]string, 0, ref.Len())
 	for i := 0; i < ref.Len(); i++ {
 		elem := fmt.Sprint(ref.Index(i).Interface())
@@ -101,11 +101,11 @@ func marshallSliceOfBasicType(prefix string, ref reflect.Value) []EnvVal {
 	return out
 }
 
-func marshalStruct(prefix string, ref reflect.Value) []EnvVal {
+func marshalStruct(prefix string, ref reflect.Value) []Node {
 	if prefix != "" {
 		prefix += "_"
 	}
-	res := make([]EnvVal, 0, ref.NumField())
+	res := make([]Node, 0, ref.NumField())
 
 	for i := 0; i < ref.NumField(); i++ {
 		tag := ref.Type().Field(i).Tag.Get(envTag)
