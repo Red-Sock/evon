@@ -76,7 +76,7 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 		}
 		return
 
-	case reflect.Slice:
+	case reflect.Slice, reflect.Map:
 		// TODO добавить проверку на базовый / не базовый типы
 		if !target.CanAddr() {
 			return
@@ -88,11 +88,11 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 		//	k = k.Elem()
 		//}
 		val := k.Interface()
-		customMarshaller, ok := val.(CustomUnmarshaler)
+		cm, ok := val.(CustomUnmarshaler)
 		if !ok {
-			panic("Slices of non basic type require sliceMarshaller to be implemented")
+			panic("Slices of non basic type and maps require customMarshaller to be implemented")
 		}
-		valueMapFunc = customMarshaller.UnmarshalEnv
+		valueMapFunc = cm.UnmarshalEnv
 
 	default:
 		valueMapFunc = getBasicTypeMappingFunc(kind, target)

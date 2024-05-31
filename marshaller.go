@@ -12,7 +12,7 @@ const (
 	sliceSeparator = ","
 )
 
-type sliceMarshaller interface {
+type customMarshaller interface {
 	MarshalEnv(prefix string) []Node
 }
 
@@ -37,8 +37,10 @@ func marshal(prefix string, ref reflect.Value) []Node {
 		if ref.IsNil() {
 			return nil
 		}
-
 		res = append(res, marshalStruct(prefix, ref.Elem())...)
+
+	case reflect.Map:
+		res = append(res, marshalMap(prefix, ref)...)
 	case reflect.String, reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		res = append(res, Node{
@@ -70,13 +72,13 @@ func marshalSlice(prefix string, ref reflect.Value) []Node {
 		} else {
 			val = ref.Interface()
 		}
-		customMarshaller, ok := val.(sliceMarshaller)
+		cm, ok := val.(customMarshaller)
 		if !ok {
-			panic("Slices of non basic type require sliceMarshaller to be implemented")
+			panic("Slices of non basic type require customMarshaller to be implemented")
 		}
 
 		marshaller = func(prefix string, ref reflect.Value) []Node {
-			return customMarshaller.MarshalEnv(prefix)
+			return cm.MarshalEnv(prefix)
 		}
 
 	case tp < reflect.Complex64:
@@ -87,7 +89,16 @@ func marshalSlice(prefix string, ref reflect.Value) []Node {
 
 	return marshaller(prefix, ref)
 }
+func marshalMap(prefix string, ref reflect.Value) []Node {
+	val := ref.Interface()
 
+	cm, ok := val.(customMarshaller)
+	if !ok {
+		panic("Slices of non basic type require customMarshaller to be implemented")
+	}
+
+	return cm.MarshalEnv(prefix)
+}
 func marshallSliceOfBasicType(prefix string, ref reflect.Value) []Node {
 	out := make([]Node, 1)
 	outStr := make([]string, 0, ref.Len())
