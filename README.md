@@ -1,4 +1,5 @@
-# RedSock environment parsing library
+# Environment Variables Object Notation
+is a RedSock's environment variables parsing library (Golang)
 
 ## Advancements
 
