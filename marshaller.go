@@ -1,6 +1,7 @@
 package evon
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"strings"
@@ -22,6 +23,17 @@ func MarshalEnv(in any) []Node {
 
 func MarshalEnvWithPrefix(prefix string, in any) []Node {
 	return marshal(prefix, reflect.ValueOf(in))
+}
+
+func Marshal(nodes []Node) []byte {
+	b := bytes.NewBuffer(nil)
+	for _, node := range nodes {
+		b.WriteString(node.Name)
+		b.WriteByte('=')
+		b.WriteString(fmt.Sprint(node.Value))
+		b.WriteByte('\n')
+	}
+	return b.Bytes()
 }
 
 func marshal(prefix string, ref reflect.Value) []Node {
@@ -65,7 +77,7 @@ func marshalSlice(prefix string, ref reflect.Value) []Node {
 	switch {
 	case tp == reflect.Struct:
 
-	case tp == reflect.Interface:
+	case tp == reflect.Interface, tp == reflect.Ptr:
 		var val any
 		if ref.CanAddr() {
 			val = ref.Addr().Interface()

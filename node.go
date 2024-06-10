@@ -72,7 +72,8 @@ func (s NodeStorage) addNode(node Node) {
 	// todo подумать над пустыми именами
 	parentNodePath := nameParts[0]
 
-	var leaftNode *Node
+	var leafNode *Node
+
 	for _, namePart := range nameParts[1:] {
 		parentNode := s[parentNodePath]
 		if parentNode == nil {
@@ -87,18 +88,21 @@ func (s NodeStorage) addNode(node Node) {
 		}
 		currentNodePath := parentNodePath + namePart
 
-		leaftNode = &Node{
-			Name: currentNodePath,
+		var ok bool
+		leafNode, ok = s[currentNodePath]
+		if !ok {
+			leafNode = &Node{
+				Name: currentNodePath,
+			}
+			s[leafNode.Name] = leafNode
+
+			parentNode.InnerNodes = append(parentNode.InnerNodes, leafNode)
 		}
-		if _, ok := s[leaftNode.Name]; !ok {
-			parentNode.InnerNodes = append(parentNode.InnerNodes, leaftNode)
-			s[leaftNode.Name] = leaftNode
-		}
+
 		parentNodePath = currentNodePath
 	}
-	leaftNode.Value = node.Value
+	leafNode.Value = node.Value
 	for _, n := range node.InnerNodes {
 		s.addNode(*n)
 	}
-	leaftNode.InnerNodes = node.InnerNodes
 }
