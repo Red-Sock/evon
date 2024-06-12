@@ -29,6 +29,14 @@ func NodeToStruct(prefix string, node *Node, dst any) {
 	unmarshal(prefix, ns, dst)
 }
 
+func UnmarshalWithNodes(srcNodes NodeStorage, dst any) {
+	unmarshal("", srcNodes, dst)
+}
+
+func UnmarshalWithNodesAndPrefix(prefix string, srcNodes NodeStorage, dst any) {
+	unmarshal(prefix, srcNodes, dst)
+}
+
 func unmarshal(prefix string, srcNodes NodeStorage, dst any) {
 	dstValuesMapper := structToValueMapper(prefix, dst)
 
