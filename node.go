@@ -13,7 +13,6 @@ type Node struct {
 type NodeStorage map[string]*Node
 
 func ParseToNodes(bytes []byte) NodeStorage {
-
 	nodesMap := NodeStorage{}
 
 	name := ""
@@ -28,51 +27,34 @@ func ParseToNodes(bytes []byte) NodeStorage {
 		case '\n':
 			value = string(bytes[start:idx])
 			start = idx + 1
-			nodesMap.addNode(Node{
+			nodesMap.addNode(&Node{
 				Name:  name,
 				Value: value,
 			})
-			//
-			//nameParts := strings.Split(name, "_")
-			//// todo подумать над пустыми именами
-			//parentNodePath := nameParts[0]
-			//var leafNode *Node
-			//for _, namePart := range nameParts[1:] {
-			//	parentNode := nodesMap[parentNodePath]
-			//	if parentNode == nil {
-			//		parentNode = &Node{
-			//			Name: parentNodePath,
-			//		}
-			//		nodesMap[parentNodePath] = parentNode
-			//	}
-			//
-			//	if parentNodePath != "" {
-			//		parentNodePath += "_"
-			//	}
-			//	currentNodePath := parentNodePath + namePart
-			//
-			//	leafNode = &Node{
-			//		Name: currentNodePath,
-			//	}
-			//	if _, ok := nodesMap[leafNode.Name]; !ok {
-			//		parentNode.InnerNodes = append(parentNode.InnerNodes, leafNode)
-			//		nodesMap[leafNode.Name] = leafNode
-			//	}
-			//	parentNodePath = currentNodePath
-			//}
-			//leafNode.Value = value
+
 		}
 	}
 
 	return nodesMap
 }
 
-func (s NodeStorage) addNode(node Node) {
+func NodesToStorage(n []*Node) NodeStorage {
+	ns := NodeStorage{}
+
+	for _, node := range n {
+		ns.addNode(node)
+	}
+
+	return ns
+}
+
+func (s NodeStorage) addNode(node *Node) {
 	nameParts := strings.Split(node.Name, "_")
-	// todo подумать над пустыми именами
 	parentNodePath := nameParts[0]
 
-	var leafNode *Node
+	var leafNode = &Node{
+		Name: parentNodePath,
+	}
 
 	for _, namePart := range nameParts[1:] {
 		parentNode := s[parentNodePath]
@@ -103,6 +85,6 @@ func (s NodeStorage) addNode(node Node) {
 	}
 	leafNode.Value = node.Value
 	for _, n := range node.InnerNodes {
-		s.addNode(*n)
+		s.addNode(n)
 	}
 }

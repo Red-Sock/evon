@@ -2,6 +2,7 @@ package evon
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -13,67 +14,83 @@ const (
 	sliceSeparator = ","
 )
 
+var (
+	ErrSliceRequireMarshaller = errors.New("slices of non basic type require customMarshaller to be implemented")
+	ErrUnsupportedType        = errors.New("")
+)
+
 type customMarshaller interface {
-	MarshalEnv(prefix string) []Node
+	MarshalEnv(prefix string) ([]*Node, error)
 }
 
-func MarshalEnv(in any) []Node {
-	return marshal("", reflect.ValueOf(in))
+var StdMarshaller marshaller
+
+type marshaller struct {
 }
 
-func MarshalEnvWithPrefix(prefix string, in any) []Node {
-	return marshal(prefix, reflect.ValueOf(in))
+func MarshalEnv(in any) (*Node, error) {
+	return StdMarshaller.marshal("", reflect.ValueOf(in))
 }
 
-func Marshal(nodes []Node) []byte {
+func MarshalEnvWithPrefix(prefix string, in any) (*Node, error) {
+	return StdMarshaller.marshal(prefix, reflect.ValueOf(in))
+}
+
+func Marshal(nodes []*Node) []byte {
 	b := bytes.NewBuffer(nil)
 	for _, node := range nodes {
-		b.WriteString(node.Name)
-		b.WriteByte('=')
-		b.WriteString(fmt.Sprint(node.Value))
-		b.WriteByte('\n')
+		if node.Value != nil {
+			b.WriteString(node.Name)
+			b.WriteByte('=')
+			b.WriteString(fmt.Sprint(node.Value))
+			b.WriteByte('\n')
+		}
+		b.Write(Marshal(node.InnerNodes))
 	}
 	return b.Bytes()
 }
 
-func marshal(prefix string, ref reflect.Value) []Node {
+func (m marshaller) marshal(prefix string, ref reflect.Value) (n *Node, err error) {
 	prefix = strings.ToUpper(prefix)
 
-	res := make([]Node, 0)
 	switch ref.Kind() {
 	case reflect.Slice:
-		res = append(res, marshalSlice(prefix, ref)...)
+		n, err = marshalSlice(prefix, ref)
 	case reflect.Struct:
-		res = append(res, marshalStruct(prefix, ref)...)
+		n, err = marshalStruct(prefix, ref)
 	case reflect.Ptr:
 		if ref.IsNil() {
-			return nil
+			return nil, nil
 		}
-		res = append(res, marshalStruct(prefix, ref.Elem())...)
+		n, err = marshalStruct(prefix, ref.Elem())
 
 	case reflect.Map:
-		res = append(res, marshalMap(prefix, ref)...)
+		n, err = marshalMap(prefix, ref)
 	case reflect.String, reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		res = append(res, Node{
+		n = &Node{
 			Name:  prefix,
 			Value: ref.Interface(),
-		})
+		}
 	default:
-		return nil
+		return nil, nil
 	}
 
-	return res
+	return n, nil
 }
 
-func marshalSlice(prefix string, ref reflect.Value) []Node {
+func marshalSlice(prefix string, ref reflect.Value) (*Node, error) {
 	if ref.Len() == 0 {
-		return nil
+		return nil, nil
+	}
+
+	n := &Node{
+		Name: prefix,
 	}
 
 	tp := ref.Index(0).Kind()
 
-	var marshaller func(prefix string, ref reflect.Value) []Node
+	var marshaller func(prefix string, ref reflect.Value) ([]*Node, error)
 	switch {
 	case tp == reflect.Struct:
 
@@ -86,33 +103,45 @@ func marshalSlice(prefix string, ref reflect.Value) []Node {
 		}
 		cm, ok := val.(customMarshaller)
 		if !ok {
-			panic("Slices of non basic type require customMarshaller to be implemented")
+			return nil, ErrSliceRequireMarshaller
 		}
 
-		marshaller = func(prefix string, ref reflect.Value) []Node {
+		marshaller = func(prefix string, ref reflect.Value) ([]*Node, error) {
 			return cm.MarshalEnv(prefix)
 		}
 
 	case tp < reflect.Complex64:
 		marshaller = marshallSliceOfBasicType
 	default:
-		panic("unsupported type " + tp.String())
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
 	}
 
-	return marshaller(prefix, ref)
+	var err error
+	n.InnerNodes, err = marshaller(prefix, ref)
+	if err != nil {
+		return nil, fmt.Errorf("%w:%s", err, "error marshalling")
+	}
+	return n, nil
 }
-func marshalMap(prefix string, ref reflect.Value) []Node {
+func marshalMap(prefix string, ref reflect.Value) (*Node, error) {
 	val := ref.Interface()
 
 	cm, ok := val.(customMarshaller)
 	if !ok {
-		panic("Slices of non basic type require customMarshaller to be implemented")
+		return nil, ErrSliceRequireMarshaller
 	}
 
-	return cm.MarshalEnv(prefix)
+	innerNodes, err := cm.MarshalEnv(prefix)
+	if err != nil {
+		return nil, fmt.Errorf("%w:%s", err, "error marshalling env")
+	}
+	return &Node{
+		Name:       prefix,
+		InnerNodes: innerNodes,
+	}, nil
 }
-func marshallSliceOfBasicType(prefix string, ref reflect.Value) []Node {
-	out := make([]Node, 1)
+func marshallSliceOfBasicType(prefix string, ref reflect.Value) ([]*Node, error) {
+	out := make([]*Node, 1)
 	outStr := make([]string, 0, ref.Len())
 	for i := 0; i < ref.Len(); i++ {
 		elem := fmt.Sprint(ref.Index(i).Interface())
@@ -121,14 +150,19 @@ func marshallSliceOfBasicType(prefix string, ref reflect.Value) []Node {
 
 	out[0].Name = prefix
 	out[0].Value = strings.Join(outStr, sliceSeparator)
-	return out
+	return out, nil
 }
 
-func marshalStruct(prefix string, ref reflect.Value) []Node {
+func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
+	n := &Node{
+		Name: prefix,
+	}
+
 	if prefix != "" {
 		prefix += "_"
 	}
-	res := make([]Node, 0, ref.NumField())
+
+	n.InnerNodes = make([]*Node, 0, ref.NumField())
 
 	for i := 0; i < ref.NumField(); i++ {
 		tag := ref.Type().Field(i).Tag.Get(envTag)
@@ -137,22 +171,26 @@ func marshalStruct(prefix string, ref reflect.Value) []Node {
 		}
 
 		if tag == "" {
-			tag = splitToSnake(ref.Type().Field(i).Name)
+			tag = splitToKebab(ref.Type().Field(i).Name)
 		}
 		tag = prefix + tag
 		value := ref.Field(i)
-		res = append(res, marshal(tag, value)...)
+		node, err := StdMarshaller.marshal(tag, value)
+		if err != nil {
+			return nil, err
+		}
+		n.InnerNodes = append(n.InnerNodes, node)
 	}
 
-	return res
+	return n, nil
 }
 
-func splitToSnake(in string) string {
+func splitToKebab(in string) string {
 	inR := []rune(in)
 	out := make([]rune, 0, len(inR)+2)
 	for idx, r := range inR {
 		if unicode.IsUpper(r) && idx != 0 {
-			out = append(out, '_')
+			out = append(out, '-')
 		}
 
 		out = append(out, r)

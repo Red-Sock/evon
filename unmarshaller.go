@@ -1,8 +1,14 @@
 package evon
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 	"strings"
+)
+
+var (
+	ErrCustomMarshallerRequired = errors.New("slices of non basic type and maps require customMarshaller to be implemented")
 )
 
 type CustomUnmarshaler interface {
@@ -24,7 +30,7 @@ func UnmarshalWithPrefix(prefix string, bytes []byte, dst any) {
 func NodeToStruct(prefix string, node *Node, dst any) {
 	ns := NodeStorage{}
 	for _, innerNode := range node.InnerNodes {
-		ns.addNode(*innerNode)
+		ns.addNode(innerNode)
 	}
 	unmarshal(prefix, ns, dst)
 }
@@ -37,8 +43,11 @@ func UnmarshalWithNodesAndPrefix(prefix string, srcNodes NodeStorage, dst any) {
 	unmarshal(prefix, srcNodes, dst)
 }
 
-func unmarshal(prefix string, srcNodes NodeStorage, dst any) {
-	dstValuesMapper := structToValueMapper(prefix, dst)
+func unmarshal(prefix string, srcNodes NodeStorage, dst any) error {
+	dstValuesMapper, err := structToValueMapper(prefix, dst)
+	if err != nil {
+		return fmt.Errorf("%w:%s", err, "error getting struct value")
+	}
 
 	for key, srcVal := range srcNodes {
 		setDstValue, ok := dstValuesMapper[key]
@@ -46,16 +55,21 @@ func unmarshal(prefix string, srcNodes NodeStorage, dst any) {
 			_ = setDstValue(srcVal)
 		}
 	}
+
+	return nil
 }
 
-func structToValueMapper(prefix string, dst any) map[string]NodeMappingFunc {
+func structToValueMapper(prefix string, dst any) (map[string]NodeMappingFunc, error) {
 	valuesMapper := map[string]NodeMappingFunc{}
 	dstReflectVal := reflect.ValueOf(dst)
-	extractMappingForTarget(prefix, dstReflectVal, valuesMapper)
+	err := extractMappingForTarget(prefix, dstReflectVal, valuesMapper)
+	if err != nil {
+		return nil, fmt.Errorf("%w:%s", err, "error extracting mapping for target")
+	}
 
-	return valuesMapper
+	return valuesMapper, nil
 }
-func extractMappingForTarget(prefix string, target reflect.Value, valueMapping map[string]NodeMappingFunc) {
+func extractMappingForTarget(prefix string, target reflect.Value, valueMapping map[string]NodeMappingFunc) error {
 	kind := target.Kind()
 
 	var valueMapFunc NodeMappingFunc
@@ -76,29 +90,25 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 			}
 
 			if tag == "" {
-				tag = splitToSnake(targetField.Name)
+				tag = splitToKebab(targetField.Name)
 			}
 
 			field := target.Field(i)
 			extractMappingForTarget(prefix+tag, field, valueMapping)
 		}
-		return
+		return nil
 
 	case reflect.Slice, reflect.Map:
 		// TODO добавить проверку на базовый / не базовый типы
 		if !target.CanAddr() {
-			return
+			return nil
 		}
 		k := target.Addr()
 
-		//if k.IsNil() {
-		//	k.Set(reflect.New(k.Type().Elem()))
-		//	k = k.Elem()
-		//}
 		val := k.Interface()
 		cm, ok := val.(CustomUnmarshaler)
 		if !ok {
-			panic("Slices of non basic type and maps require customMarshaller to be implemented")
+			return ErrCustomMarshallerRequired
 		}
 		valueMapFunc = cm.UnmarshalEnv
 
@@ -110,6 +120,8 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 		envName := strings.ToUpper(prefix)
 		valueMapping[envName] = valueMapFunc
 	}
+
+	return nil
 }
 
 func getBasicTypeMappingFunc(kind reflect.Kind, target reflect.Value) NodeMappingFunc {
