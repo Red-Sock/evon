@@ -1,0 +1,14 @@
+name: distribute
+run-name: Distributing
+on:
+  workflow_dispatch:
+
+jobs:
+  distribution:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release
+        uses: RedSockAction/Distribute@v0.0.1
+        with:
+          target_repos: "https://gitlab.com/RedSock/core/evon.git"
+          netrc: ${{ secrets.DISTRIBUTION_NETRC }}
