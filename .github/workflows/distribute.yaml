@@ -11,4 +11,4 @@ jobs:
         uses: RedSockActions/distribute@v0.0.3
         with:
           target_repos: "https://gitlab.com/RedSock/core/evon.git"
-          netrc: ${{ secrets.DISTRIBUTION_NETRC }}
+          netrc: ${{ vars.TEST_DISTRIBUTION }}
