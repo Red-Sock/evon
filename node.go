@@ -52,11 +52,11 @@ func (s NodeStorage) addNode(node *Node) {
 	nameParts := strings.Split(node.Name, "_")
 	parentNodePath := nameParts[0]
 
-	var leafNode = &Node{
+	var lastNode = &Node{
 		Name: parentNodePath,
 	}
 
-	for _, namePart := range nameParts[1:] {
+	for _, namePart := range nameParts[1 : len(nameParts)-1] {
 		parentNode := s[parentNodePath]
 		if parentNode == nil {
 			parentNode = &Node{
@@ -71,19 +71,21 @@ func (s NodeStorage) addNode(node *Node) {
 		currentNodePath := parentNodePath + namePart
 
 		var ok bool
-		leafNode, ok = s[currentNodePath]
+		lastNode, ok = s[currentNodePath]
 		if !ok {
-			leafNode = &Node{
+			lastNode = &Node{
 				Name: currentNodePath,
 			}
-			s[leafNode.Name] = leafNode
+			s[lastNode.Name] = lastNode
 
-			parentNode.InnerNodes = append(parentNode.InnerNodes, leafNode)
+			parentNode.InnerNodes = append(parentNode.InnerNodes, lastNode)
 		}
 
 		parentNodePath = currentNodePath
 	}
-	leafNode.Value = node.Value
+	lastNode.InnerNodes = append(lastNode.InnerNodes, node)
+	s[node.Name] = node
+
 	for _, n := range node.InnerNodes {
 		s.addNode(n)
 	}
