@@ -50,39 +50,31 @@ func NodesToStorage(n []*Node) NodeStorage {
 
 func (s NodeStorage) addNode(node *Node) {
 	nameParts := strings.Split(node.Name, "_")
-	parentNodePath := nameParts[0]
 
-	var lastNode = &Node{
-		Name: parentNodePath,
+	nodePath := ""
+	lastNode := &Node{}
+	s[lastNode.Name] = lastNode
+
+	for _, namePart := range nameParts[:len(nameParts)-1] {
+		if nodePath != "" {
+			nodePath += "_"
+		}
+		nodePath = nodePath + namePart
+
+		nextNode := s[nodePath]
+		if nextNode == nil {
+			nextNode = &Node{
+				Name: nodePath,
+			}
+			if lastNode != nil {
+				lastNode.InnerNodes = append(lastNode.InnerNodes, nextNode)
+			}
+			s[nodePath] = nextNode
+		}
+
+		lastNode = nextNode
 	}
 
-	for _, namePart := range nameParts[1 : len(nameParts)-1] {
-		parentNode := s[parentNodePath]
-		if parentNode == nil {
-			parentNode = &Node{
-				Name: parentNodePath,
-			}
-			s[parentNodePath] = parentNode
-		}
-
-		if parentNodePath != "" {
-			parentNodePath += "_"
-		}
-		currentNodePath := parentNodePath + namePart
-
-		var ok bool
-		lastNode, ok = s[currentNodePath]
-		if !ok {
-			lastNode = &Node{
-				Name: currentNodePath,
-			}
-			s[lastNode.Name] = lastNode
-
-			parentNode.InnerNodes = append(parentNode.InnerNodes, lastNode)
-		}
-
-		parentNodePath = currentNodePath
-	}
 	lastNode.InnerNodes = append(lastNode.InnerNodes, node)
 	s[node.Name] = node
 
