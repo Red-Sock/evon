@@ -14,3 +14,7 @@ jobs:
         with:
           token: ${{ github.token }}
           config_path: version/version.yaml
+      - name: Distribute
+        uses: RedSockActions/distribute@v0.0.9
+        with:
+          TARGET_REPOS: ${{ secrets.DISTRIBUTION_URLS }}
