@@ -179,7 +179,9 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		n.InnerNodes = append(n.InnerNodes, node)
+		if node != nil {
+			n.InnerNodes = append(n.InnerNodes, node)
+		}
 	}
 
 	return n, nil
