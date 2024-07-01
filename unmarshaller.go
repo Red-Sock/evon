@@ -17,30 +17,30 @@ type CustomUnmarshaler interface {
 
 type NodeMappingFunc func(v *Node) error
 
-func Unmarshal(bytes []byte, dst any) {
+func Unmarshal(bytes []byte, dst any) error {
 	srcNodes := ParseToNodes(bytes)
-	unmarshal("", srcNodes, dst)
+	return unmarshal("", srcNodes, dst)
 }
 
-func UnmarshalWithPrefix(prefix string, bytes []byte, dst any) {
+func UnmarshalWithPrefix(prefix string, bytes []byte, dst any) error {
 	srcNodes := ParseToNodes(bytes)
-	unmarshal(prefix, srcNodes, dst)
+	return unmarshal(prefix, srcNodes, dst)
 }
 
-func NodeToStruct(prefix string, node *Node, dst any) {
+func NodeToStruct(prefix string, node *Node, dst any) error {
 	ns := NodeStorage{}
 	for _, innerNode := range node.InnerNodes {
 		ns.AddNode(innerNode)
 	}
-	unmarshal(prefix, ns, dst)
+	return unmarshal(prefix, ns, dst)
 }
 
-func UnmarshalWithNodes(srcNodes NodeStorage, dst any) {
-	unmarshal("", srcNodes, dst)
+func UnmarshalWithNodes(srcNodes NodeStorage, dst any) error {
+	return unmarshal("", srcNodes, dst)
 }
 
-func UnmarshalWithNodesAndPrefix(prefix string, srcNodes NodeStorage, dst any) {
-	unmarshal(prefix, srcNodes, dst)
+func UnmarshalWithNodesAndPrefix(prefix string, srcNodes NodeStorage, dst any) error {
+	return unmarshal(prefix, srcNodes, dst)
 }
 
 func unmarshal(prefix string, srcNodes NodeStorage, dst any) error {
@@ -52,7 +52,10 @@ func unmarshal(prefix string, srcNodes NodeStorage, dst any) error {
 	for key, srcVal := range srcNodes {
 		setDstValue, ok := dstValuesMapper[key]
 		if ok {
-			_ = setDstValue(srcVal)
+			err = setDstValue(srcVal)
+			if err != nil {
+				return fmt.Errorf("%w:%s", err, "error setting value")
+			}
 		}
 	}
 
@@ -84,7 +87,16 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 
 		for i := 0; i < target.NumField(); i++ {
 			targetField := target.Type().Field(i)
-			tag := targetField.Tag.Get(envTag)
+			tags := strings.Split(targetField.Tag.Get(envTag), ",")
+			var tag string
+			for _, t := range tags {
+				if t == envTagOmitempty {
+					continue
+				}
+				tag = t
+				break
+			}
+
 			if tag == "-" {
 				continue
 			}

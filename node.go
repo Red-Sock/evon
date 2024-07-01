@@ -75,7 +75,17 @@ func (s NodeStorage) AddNode(node *Node) {
 		lastNode = nextNode
 	}
 
-	lastNode.InnerNodes = append(lastNode.InnerNodes, node)
+	nodeAlreadyExists := false
+	for _, n := range lastNode.InnerNodes {
+		if n.Name == node.Name {
+			nodeAlreadyExists = true
+			break
+		}
+	}
+	if !nodeAlreadyExists {
+		lastNode.InnerNodes = append(lastNode.InnerNodes, node)
+	}
+
 	s[node.Name] = node
 
 	for _, n := range node.InnerNodes {

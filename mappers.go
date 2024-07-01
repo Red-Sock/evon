@@ -49,14 +49,15 @@ func mapInt(target reflect.Value) NodeMappingFunc {
 }
 
 func extractUint(v reflect.Value) uint64 {
-	switch v.Kind() {
+	kind := v.Kind()
+	switch kind {
 	case reflect.String:
 		str := v.String()
 		d, _ := strconv.ParseUint(str, 10, 64)
 		return d
-	case reflect.Int:
+	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
 		return uint64(v.Int())
-	case reflect.Uint:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return v.Uint()
 	default:
 		return 0
@@ -70,12 +71,14 @@ func mapUint(target reflect.Value) NodeMappingFunc {
 }
 
 func extractDuration(v reflect.Value) int64 {
-	switch v.Kind() {
+	k := v.Kind()
+	switch k {
 	case reflect.String:
 		str := v.String()
 		d, _ := time.ParseDuration(str)
 		return int64(d)
-
+	case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
+		return v.Int()
 	default:
 		return 0
 	}

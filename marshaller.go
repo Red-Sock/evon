@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	envTag         = "env"
-	sliceSeparator = ","
+	envTag          = "env"
+	sliceSeparator  = ","
+	envTagOmitempty = "omitempty"
 )
 
 var (
@@ -165,8 +166,24 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 	n.InnerNodes = make([]*Node, 0, ref.NumField())
 
 	for i := 0; i < ref.NumField(); i++ {
-		tag := ref.Type().Field(i).Tag.Get(envTag)
-		if tag == "-" {
+		tags := strings.Split(ref.Type().Field(i).Tag.Get(envTag), sliceSeparator)
+		var skip, omitempty bool
+		var tag string
+		for _, t := range tags {
+			if t == "-" {
+				skip = true
+				break
+			}
+			if t == envTagOmitempty {
+				omitempty = true
+			}
+		}
+		if skip {
+			continue
+		}
+
+		value := ref.Field(i)
+		if value.IsZero() && omitempty {
 			continue
 		}
 
@@ -174,7 +191,7 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 			tag = splitToKebab(ref.Type().Field(i).Name)
 		}
 		tag = prefix + tag
-		value := ref.Field(i)
+
 		node, err := StdMarshaller.marshal(tag, value)
 		if err != nil {
 			return nil, err
