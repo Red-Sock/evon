@@ -30,7 +30,7 @@ func UnmarshalWithPrefix(prefix string, bytes []byte, dst any) {
 func NodeToStruct(prefix string, node *Node, dst any) {
 	ns := NodeStorage{}
 	for _, innerNode := range node.InnerNodes {
-		ns.addNode(innerNode)
+		ns.AddNode(innerNode)
 	}
 	unmarshal(prefix, ns, dst)
 }

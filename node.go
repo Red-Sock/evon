@@ -27,7 +27,7 @@ func ParseToNodes(bytes []byte) NodeStorage {
 		case '\n':
 			value = string(bytes[start:idx])
 			start = idx + 1
-			nodesMap.addNode(&Node{
+			nodesMap.AddNode(&Node{
 				Name:  name,
 				Value: value,
 			})
@@ -42,13 +42,13 @@ func NodesToStorage(n []*Node) NodeStorage {
 	ns := NodeStorage{}
 
 	for _, node := range n {
-		ns.addNode(node)
+		ns.AddNode(node)
 	}
 
 	return ns
 }
 
-func (s NodeStorage) addNode(node *Node) {
+func (s NodeStorage) AddNode(node *Node) {
 	nameParts := strings.Split(node.Name, "_")
 
 	nodePath := ""
@@ -79,6 +79,6 @@ func (s NodeStorage) addNode(node *Node) {
 	s[node.Name] = node
 
 	for _, n := range node.InnerNodes {
-		s.addNode(n)
+		s.AddNode(n)
 	}
 }
