@@ -77,6 +77,10 @@ func (m marshaller) marshal(prefix string, ref reflect.Value) (n *Node, err erro
 		return nil, nil
 	}
 
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling node: %w", err)
+	}
+
 	return n, nil
 }
 
@@ -94,7 +98,7 @@ func marshalSlice(prefix string, ref reflect.Value) (*Node, error) {
 	var marshaller func(prefix string, ref reflect.Value) ([]*Node, error)
 	switch {
 	case tp == reflect.Struct:
-
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
 	case tp == reflect.Interface, tp == reflect.Ptr:
 		var val any
 		if ref.CanAddr() {
@@ -111,8 +115,12 @@ func marshalSlice(prefix string, ref reflect.Value) (*Node, error) {
 			return cm.MarshalEnv(prefix)
 		}
 
-	case tp < reflect.Complex64:
-		marshaller = marshallSliceOfBasicType
+	case tp < reflect.Complex64, tp == reflect.String:
+		node, err := marshallSliceOfBasicType(prefix, ref)
+		if err != nil {
+			return nil, fmt.Errorf("%w", err)
+		}
+		return node, nil
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
 	}
@@ -141,16 +149,17 @@ func marshalMap(prefix string, ref reflect.Value) (*Node, error) {
 		InnerNodes: innerNodes,
 	}, nil
 }
-func marshallSliceOfBasicType(prefix string, ref reflect.Value) ([]*Node, error) {
-	out := make([]*Node, 1)
+func marshallSliceOfBasicType(prefix string, ref reflect.Value) (*Node, error) {
+	out := &Node{}
+
 	outStr := make([]string, 0, ref.Len())
 	for i := 0; i < ref.Len(); i++ {
 		elem := fmt.Sprint(ref.Index(i).Interface())
 		outStr = append(outStr, elem)
 	}
 
-	out[0].Name = prefix
-	out[0].Value = strings.Join(outStr, sliceSeparator)
+	out.Name = prefix
+	out.Value = strings.Join(outStr, sliceSeparator)
 	return out, nil
 }
 

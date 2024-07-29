@@ -106,7 +106,10 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 			}
 
 			field := target.Field(i)
-			extractMappingForTarget(prefix+tag, field, valueMapping)
+			err := extractMappingForTarget(prefix+tag, field, valueMapping)
+			if err != nil {
+				return fmt.Errorf("%w", err)
+			}
 		}
 		return nil
 
