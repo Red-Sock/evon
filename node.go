@@ -52,8 +52,11 @@ func (s NodeStorage) AddNode(node *Node) {
 	nameParts := strings.Split(node.Name, "_")
 
 	nodePath := ""
-	lastNode := &Node{}
-	s[lastNode.Name] = lastNode
+	lastNode := s[nodePath]
+	if lastNode == nil {
+		lastNode = &Node{}
+		s[nodePath] = lastNode
+	}
 
 	for _, namePart := range nameParts[:len(nameParts)-1] {
 		if nodePath != "" {
