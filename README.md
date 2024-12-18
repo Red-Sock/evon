@@ -14,7 +14,7 @@ is a RedSock's environment variables parsing library (Golang)
 package main
 
 import (
-    "github.com/Red-Sock/env"
+    "go.redsock.ru/evon"
 )
 
 func Test_marshalling_env(t *testing.T) {
@@ -93,7 +93,7 @@ func Test_marshalling_env(t *testing.T) {
 		},
 		{
 			Name:  "MATRESHKA_DATA_SOURCES_GRPC-RSCLI-EXAMPLE_MODULE",
-			Value: "github.com/Red-Sock/rscli_example",
+			Value: "go.redsock.ru/rscli_example",
 		},
 		{
 			Name:  "MATRESHKA_SERVERS_REST_PORT",
@@ -125,7 +125,7 @@ MATRESHKA_DATA_SOURCES_REDIS_PWD=redis_matreshka_pwd
 MATRESHKA_DATA_SOURCES_REDIS_DB=2
 MATRESHKA_DATA_SOURCES_TELEGRAM_API_KEY=some_api_key
 MATRESHKA_DATA_SOURCES_GRPC-RSCLI-EXAMPLE_CONNECTION_STRING=0.0.0.0:50051
-MATRESHKA_DATA_SOURCES_GRPC-RSCLI-EXAMPLE_MODULE=github.com/Red-Sock/rscli_example
+MATRESHKA_DATA_SOURCES_GRPC-RSCLI-EXAMPLE_MODULE=go.redsock.ru/rscli_example
 MATRESHKA_SERVERS_REST_PORT=8080
 MATRESHKA_SERVERS_GRPC_PORT=50051
 `
@@ -162,7 +162,7 @@ MATRESHKA_SERVERS_GRPC_PORT=50051
 			&data_sources.GRPC{
 				Name:             "grpc_rscli_example",
 				ConnectionString: "0.0.0.0:50051",
-				Module:           "github.com/Red-Sock/rscli_example",
+				Module:           "go.redsock.ru/rscli_example",
 			},
 		},
 		Servers: Servers{
@@ -188,7 +188,7 @@ MATRESHKA_SERVERS_GRPC_PORT=50051
 package main
 
 import (
-	"github.com/Red-Sock/env"
+	"go.redsock.ru/evon"
 )
 
 type Resource interface {
