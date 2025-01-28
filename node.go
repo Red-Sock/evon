@@ -4,6 +4,31 @@ import (
 	"strings"
 )
 
+const (
+	// ObjectSplitter must be used to separate nested objects
+	// e.g. evon record "OBJECT_FIELD1_FIELD2=2"
+	// is equal to json record
+	// {
+	//		"object": {
+	//		   	"field1": {
+	//			   	"field2": 2
+	//			}
+	//		}
+	//	}
+	ObjectSplitter = "_"
+	// FieldSplitter must be used to for fields with more than one word in name
+	// e.g. evon record "OBJECT_FIELD-ONE_FIELD-TWO=2"
+	// is equal to json record
+	// {
+	//		"object": {
+	//		   	"field-one": {
+	//			   	"field-two": 2
+	//			}
+	//		}
+	//	}
+	FieldSplitter = "-"
+)
+
 type Node struct {
 	Name       string
 	Value      any
