@@ -191,7 +191,12 @@ func (m mapValueMapper) Map(key string, dst *Node) error {
 			node[pp] = newNode
 			node = newNode
 		} else {
-			node = v.(map[string]any)
+			newNode, _ := v.(map[string]any)
+			if newNode == nil {
+				newNode = map[string]any{}
+				node[pp] = newNode
+				node = newNode
+			}
 		}
 	}
 
