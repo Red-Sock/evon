@@ -43,7 +43,7 @@ func MarshalEnvWithPrefix(prefix string, in any) (*Node, error) {
 func Marshal(nodes []*Node) []byte {
 	b := bytes.NewBuffer(nil)
 	for _, node := range nodes {
-		if node.Value != nil {
+		if node.Value != nil && len(node.InnerNodes) == 0 {
 			b.WriteString(node.Name)
 			b.WriteByte('=')
 			b.WriteString(fmt.Sprint(node.Value))
