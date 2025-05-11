@@ -90,7 +90,7 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 			tags := strings.Split(targetField.Tag.Get(envTag), ",")
 			var tag string
 			for _, t := range tags {
-				if t == envTagOmitempty {
+				if t == tagOmitempty {
 					continue
 				}
 				tag = t

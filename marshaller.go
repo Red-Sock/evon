@@ -7,12 +7,15 @@ import (
 	"reflect"
 	"strings"
 	"unicode"
+
+	"go.redsock.ru/toolbox"
 )
 
 const (
-	envTag          = "env"
-	sliceSeparator  = ","
-	envTagOmitempty = "omitempty"
+	envTag         = "env"
+	evonTag        = "evon"
+	sliceSeparator = ","
+	tagOmitempty   = "omitempty"
 )
 
 var (
@@ -98,7 +101,31 @@ func marshalSlice(prefix string, ref reflect.Value) (*Node, error) {
 	var marshaller func(prefix string, ref reflect.Value) ([]*Node, error)
 	switch {
 	case tp == reflect.Struct:
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
+		val := ref.Index(0).Interface()
+		_, ok := val.(customMarshaller)
+		if !ok {
+			return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
+		}
+		marshaller = func(prefix string, ref reflect.Value) ([]*Node, error) {
+			out := make([]*Node, 0, ref.Len())
+			for i := range ref.Len() {
+				val = ref.Index(i).Interface()
+				m, ok := val.(customMarshaller)
+				if !ok {
+					return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
+				}
+
+				node, err := m.MarshalEnv(prefix)
+				if err != nil {
+					return nil, fmt.Errorf("error marshalling slice element: %w", err)
+				}
+
+				out = append(out, node...)
+			}
+
+			return out, nil
+		}
+
 	case tp == reflect.Interface, tp == reflect.Ptr:
 		var val any
 		if ref.CanAddr() {
@@ -175,18 +202,25 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 	n.InnerNodes = make([]*Node, 0, ref.NumField())
 
 	for i := 0; i < ref.NumField(); i++ {
-		tags := strings.Split(ref.Type().Field(i).Tag.Get(envTag), sliceSeparator)
+		field := ref.Type().Field(i)
+		t := toolbox.Coalesce(
+			field.Tag.Get(evonTag),
+			field.Tag.Get(envTag))
+		tags := strings.Split(t, sliceSeparator)
+
 		var skip, omitempty bool
-		var tag string
-		for _, t := range tags {
+		tag := tags[0]
+		for _, t = range tags {
 			if t == "-" {
 				skip = true
 				break
 			}
-			if t == envTagOmitempty {
+			if t == tagOmitempty {
 				omitempty = true
 			}
+			tag = t
 		}
+
 		if skip {
 			continue
 		}
@@ -197,7 +231,7 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 		}
 
 		if tag == "" {
-			tag = splitToKebab(ref.Type().Field(i).Name)
+			tag = splitToKebab(field.Name)
 		}
 		tag = prefix + tag
 
