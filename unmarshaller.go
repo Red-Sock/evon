@@ -43,29 +43,58 @@ func UnmarshalWithNodesAndPrefix(prefix string, srcNodes NodeStorage, dst any) e
 	return unmarshal(prefix, srcNodes, dst)
 }
 
-func unmarshal(prefix string, srcNodes NodeStorage, dst any) error {
-	dstValuesMapper, err := structToValueMapper(prefix, dst)
-	if err != nil {
-		return fmt.Errorf("%w:%s", err, "error getting struct value")
+func unmarshal(prefix string, srcNodes NodeStorage, dst any) (err error) {
+	dstRefVal := reflect.ValueOf(dst)
+
+	var dstValuesMapper unmarshalMapper
+
+	switch dstRefVal.Kind() {
+	case reflect.Map:
+		dstValuesMapper, err = newMapValueMapper(dst)
+		if err != nil {
+			return fmt.Errorf("error mapping to Golang's map: %w", err)
+		}
+	default:
+		dstValuesMapper, err = newStructValueMapper(prefix, dstRefVal)
+		if err != nil {
+			return fmt.Errorf("%w:%s", err, "error getting struct value")
+		}
+
 	}
 
 	for key, srcVal := range srcNodes {
-		setDstValue, ok := dstValuesMapper[key]
-		if ok {
-			err = setDstValue(srcVal)
-			if err != nil {
-				return fmt.Errorf("%w:%s", err, "error setting value")
-			}
+		err = dstValuesMapper.Map(key, srcVal)
+		if err != nil {
+			return fmt.Errorf("%w:%s", err, "error setting value")
 		}
 	}
 
 	return nil
 }
 
-func structToValueMapper(prefix string, dst any) (map[string]NodeMappingFunc, error) {
-	valuesMapper := map[string]NodeMappingFunc{}
-	dstReflectVal := reflect.ValueOf(dst)
-	err := extractMappingForTarget(prefix, dstReflectVal, valuesMapper)
+type structValueMapper struct {
+	constructorsByPath map[string]NodeMappingFunc
+}
+
+func (s *structValueMapper) Map(key string, dst *Node) error {
+	cbp, exists := s.constructorsByPath[key]
+	if exists {
+		return cbp(dst)
+	}
+
+	return nil
+}
+
+type unmarshalMapper interface {
+	Map(key string, dst *Node) error
+}
+
+func newStructValueMapper(prefix string, dst reflect.Value) (unmarshalMapper, error) {
+	valuesMapper := &structValueMapper{
+		constructorsByPath: make(map[string]NodeMappingFunc),
+	}
+
+	err := extractMappingForTarget(prefix, dst, valuesMapper.constructorsByPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w:%s", err, "error extracting mapping for target")
 	}
@@ -137,6 +166,50 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 	}
 
 	return nil
+}
+
+type mapValueMapper struct {
+	m map[string]any
+}
+
+func (m mapValueMapper) Map(key string, dst *Node) error {
+	if dst.Value == nil {
+		return nil
+	}
+
+	pathParts := strings.Split(key, ObjectSplitter)
+	node := m.m
+
+	for _, pp := range pathParts[:len(pathParts)-1] {
+		if pp == "" {
+			continue
+		}
+
+		v, ok := node[pp]
+		if !ok {
+			newNode := map[string]any{}
+			node[pp] = newNode
+			node = newNode
+		} else {
+			node = v.(map[string]any)
+		}
+	}
+
+	node[pathParts[len(pathParts)-1]] = dst.Value
+
+	return nil
+}
+
+func newMapValueMapper(dst any) (unmarshalMapper, error) {
+	mapDst, ok := dst.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("unable to unmarshal to map NOT map[string]any. Got: %T", dst)
+	}
+	m := mapValueMapper{
+		m: mapDst,
+	}
+
+	return m, nil
 }
 
 func getBasicTypeMappingFunc(kind reflect.Kind, target reflect.Value) NodeMappingFunc {

@@ -7,10 +7,12 @@ import (
 )
 
 var (
-	//go:embed tests/expected.env
-	expectedDotEnv []byte
-	//go:embed tests/prefixed-expected.env
+	//go:embed tests/object.env
+	fullObjectDotEnv []byte
+	//go:embed tests/prefixed-object.env
 	prefixedExpectedDotEnv []byte
+	//go:embed tests/simple-object.env
+	simpleObjectDotEnv []byte
 )
 
 type TestObject struct {

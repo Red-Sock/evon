@@ -100,7 +100,7 @@ func TestMarshallingToFile(t *testing.T) {
 	testCases := map[string]testCase{
 		"OK": {
 			in:          to.ExpectedObjNodes(noPrefix).InnerNodes,
-			expectedOut: expectedDotEnv,
+			expectedOut: fullObjectDotEnv,
 		},
 		"OK_PREFIXED": {
 			in:          to.ExpectedObjNodes(testPrefix).InnerNodes,
