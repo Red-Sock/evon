@@ -210,7 +210,8 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 		tags := strings.Split(t, sliceSeparator)
 
 		var skip, omitempty bool
-		tag := tags[0]
+		var tag string
+
 		for _, t = range tags {
 			if t == "-" {
 				skip = true
