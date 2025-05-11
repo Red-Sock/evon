@@ -66,7 +66,8 @@ func (m marshaller) marshal(prefix string, ref reflect.Value) (n *Node, err erro
 		if ref.IsNil() {
 			return nil, nil
 		}
-		n, err = marshalStruct(prefix, ref.Elem())
+
+		n, err = m.marshal(prefix, ref.Elem())
 
 	case reflect.Map:
 		n, err = marshalMap(prefix, ref)
