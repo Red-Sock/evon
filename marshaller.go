@@ -219,6 +219,7 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 			}
 			if t == tagOmitempty {
 				omitempty = true
+				continue
 			}
 			tag = t
 		}
