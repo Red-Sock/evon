@@ -63,10 +63,11 @@ func ParseToNodes(bytes []byte) NodeStorage {
 	return nodesMap
 }
 
-func NodesToStorage(n []*Node) NodeStorage {
+func NodesToStorage(n *Node) NodeStorage {
 	ns := NodeStorage{}
+	ns[""] = n
 
-	for _, node := range n {
+	for _, node := range n.InnerNodes {
 		ns.AddNode(node)
 	}
 
@@ -74,7 +75,9 @@ func NodesToStorage(n []*Node) NodeStorage {
 }
 
 func (s NodeStorage) AddNode(node *Node) {
-	nameParts := strings.Split(node.Name, "_")
+	rootName := node.Name
+
+	nameParts := strings.Split(rootName, "_")
 
 	nodePath := ""
 	lastNode := s[nodePath]
@@ -103,20 +106,26 @@ func (s NodeStorage) AddNode(node *Node) {
 		lastNode = nextNode
 	}
 
-	nodeAlreadyExists := false
+	var existingNode *Node
 	for _, n := range lastNode.InnerNodes {
 		if n.Name == node.Name {
-			nodeAlreadyExists = true
+			existingNode = n
 			break
 		}
 	}
-	if !nodeAlreadyExists {
+	if existingNode == nil {
 		lastNode.InnerNodes = append(lastNode.InnerNodes, node)
+	} else {
+		existingNode.Value = node.Value
 	}
 
 	s[node.Name] = node
 
 	for _, n := range node.InnerNodes {
+		if !strings.HasPrefix(n.Name, rootName) {
+			n.Name = rootName + "_" + n.Name
+		}
+
 		s.AddNode(n)
 	}
 }
