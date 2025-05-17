@@ -65,6 +65,10 @@ func ParseToNodes(bytes []byte) NodeStorage {
 
 func NodesToStorage(n *Node) NodeStorage {
 	ns := NodeStorage{}
+	if n == nil {
+		n = &Node{}
+	}
+
 	ns[""] = n
 
 	for _, node := range n.InnerNodes {
