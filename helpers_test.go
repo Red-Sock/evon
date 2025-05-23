@@ -13,6 +13,8 @@ var (
 	prefixedExpectedDotEnv []byte
 	//go:embed tests/simple-object.env
 	simpleObjectDotEnv []byte
+	//go:embed tests/matreshka.env
+	matreshkaDotEnv []byte
 )
 
 type TestObject struct {

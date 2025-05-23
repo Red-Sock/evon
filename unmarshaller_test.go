@@ -21,3 +21,11 @@ func TestUnmarshalToMap(t *testing.T) {
 	}
 	require.Equal(t, expected, targetMap)
 }
+
+func TestUnmarshalMatreshkaToMap(t *testing.T) {
+	ns := ParseToNodes(matreshkaDotEnv)
+
+	targetMap := map[string]any{}
+	err := UnmarshalWithNodes(ns, targetMap, WithSnakeUnmarshal())
+	require.NoError(t, err)
+}

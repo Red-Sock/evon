@@ -35,15 +35,15 @@ func NodeToStruct(prefix string, node *Node, dst any) error {
 	return unmarshal(prefix, ns, dst)
 }
 
-func UnmarshalWithNodes(srcNodes NodeStorage, dst any) error {
-	return unmarshal("", srcNodes, dst)
+func UnmarshalWithNodes(srcNodes NodeStorage, dst any, opts ...unmarshalOpt) error {
+	return unmarshal("", srcNodes, dst, opts...)
 }
 
 func UnmarshalWithNodesAndPrefix(prefix string, srcNodes NodeStorage, dst any) error {
 	return unmarshal(prefix, srcNodes, dst)
 }
 
-func unmarshal(prefix string, srcNodes NodeStorage, dst any) (err error) {
+func unmarshal(prefix string, srcNodes NodeStorage, dst any, opts ...unmarshalOpt) (err error) {
 	dstRefVal := reflect.ValueOf(dst)
 
 	var dstValuesMapper unmarshalMapper
@@ -62,8 +62,21 @@ func unmarshal(prefix string, srcNodes NodeStorage, dst any) (err error) {
 
 	}
 
+	unOpts := unmarshalOpts{
+		keyName: func(s string) string { return s },
+	}
+
+	for _, opt := range opts {
+		opt(&unOpts)
+	}
+
 	for key, srcVal := range srcNodes {
-		err = dstValuesMapper.Map(key, srcVal)
+		keyPath := strings.Split(key, ObjectSplitter)
+		for i := range keyPath {
+			keyPath[i] = unOpts.keyName(keyPath[i])
+		}
+
+		err = dstValuesMapper.Map(keyPath, srcVal)
 		if err != nil {
 			return fmt.Errorf("%w:%s", err, "error setting value")
 		}
@@ -72,21 +85,21 @@ func unmarshal(prefix string, srcNodes NodeStorage, dst any) (err error) {
 	return nil
 }
 
+type unmarshalMapper interface {
+	Map(keyPath []string, dst *Node) error
+}
+
 type structValueMapper struct {
 	constructorsByPath map[string]NodeMappingFunc
 }
 
-func (s *structValueMapper) Map(key string, dst *Node) error {
-	cbp, exists := s.constructorsByPath[key]
+func (s *structValueMapper) Map(keyPath []string, dst *Node) error {
+	cbp, exists := s.constructorsByPath[strings.Join(keyPath, ObjectSplitter)]
 	if exists {
 		return cbp(dst)
 	}
 
 	return nil
-}
-
-type unmarshalMapper interface {
-	Map(key string, dst *Node) error
 }
 
 func newStructValueMapper(prefix string, dst reflect.Value) (unmarshalMapper, error) {
@@ -101,6 +114,7 @@ func newStructValueMapper(prefix string, dst reflect.Value) (unmarshalMapper, er
 
 	return valuesMapper, nil
 }
+
 func extractMappingForTarget(prefix string, target reflect.Value, valueMapping map[string]NodeMappingFunc) error {
 	kind := target.Kind()
 
@@ -172,15 +186,14 @@ type mapValueMapper struct {
 	m map[string]any
 }
 
-func (m mapValueMapper) Map(key string, dst *Node) error {
+func (m mapValueMapper) Map(keyPath []string, dst *Node) error {
 	if dst.Value == nil {
 		return nil
 	}
 
-	pathParts := strings.Split(key, ObjectSplitter)
 	node := m.m
 
-	for _, pp := range pathParts[:len(pathParts)-1] {
+	for _, pp := range keyPath[:len(keyPath)-1] {
 		if pp == "" {
 			continue
 		}
@@ -200,7 +213,7 @@ func (m mapValueMapper) Map(key string, dst *Node) error {
 		}
 	}
 
-	node[pathParts[len(pathParts)-1]] = dst.Value
+	node[keyPath[len(keyPath)-1]] = dst.Value
 
 	return nil
 }
