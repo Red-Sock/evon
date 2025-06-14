@@ -15,6 +15,9 @@ var (
 	simpleObjectDotEnv []byte
 	//go:embed tests/matreshka.env
 	matreshkaDotEnv []byte
+
+	//go:embed tests/complex-config.yaml
+	complexYamlConfig []byte
 )
 
 type TestObject struct {

@@ -1,16 +1,12 @@
 package evon
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"go.redsock.ru/rerrors"
-)
-
-var (
-	ErrCustomMarshallerRequired = errors.New("slices of non basic type and maps require customMarshaller to be implemented")
 )
 
 type CustomUnmarshaler interface {
@@ -84,11 +80,14 @@ func unmarshal(prefix string, srcNodes NodeStorage, dst any, opts ...unmarshalOp
 		}
 	}
 
+	dstValuesMapper.PostMapping()
+
 	return nil
 }
 
 type unmarshalMapper interface {
 	Map(keyPath []string, dst *Node) error
+	PostMapping()
 }
 
 type structValueMapper struct {
@@ -103,7 +102,9 @@ func (s *structValueMapper) Map(keyPath []string, dst *Node) error {
 
 	return nil
 }
+func (s *structValueMapper) PostMapping() {
 
+}
 func newStructValueMapper(prefix string, dst reflect.Value) (unmarshalMapper, error) {
 	valuesMapper := &structValueMapper{
 		constructorsByPath: make(map[string]NodeMappingFunc),
@@ -123,13 +124,13 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 	var valueMapFunc NodeMappingFunc
 	switch kind {
 	case reflect.Pointer, reflect.Struct:
-		if prefix != "" {
-			prefix += "_"
-		}
-
 		if kind == reflect.Pointer {
 			target = target.Elem()
 			return extractMappingForTarget(prefix, target, valueMapping)
+		}
+
+		if prefix != "" {
+			prefix += "_"
 		}
 
 		for i := 0; i < target.NumField(); i++ {
@@ -222,6 +223,58 @@ func (m mapValueMapper) Map(keyPath []string, dst *Node) error {
 	node[keyPath[len(keyPath)-1]] = dst.Value
 
 	return nil
+}
+
+func (m mapValueMapper) PostMapping() {
+
+	var fixSlice func(root map[string]any) []any
+
+	fixSlice = func(root map[string]any) []any {
+		sliced := make([]any, 0)
+
+		for key, v := range root {
+			innerMap, ok := v.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			sliceIndexStart := strings.Index(key, "[")
+			if sliceIndexStart == -1 {
+				sl := fixSlice(innerMap)
+				if len(sl) > 0 {
+					root[key] = sl
+				}
+
+				continue
+			}
+
+			sliceIndexEnd := strings.Index(key, "]")
+			if sliceIndexStart == -1 {
+				sl := fixSlice(innerMap)
+				if len(sl) > 0 {
+					root[key] = sl
+				}
+
+				continue
+			}
+
+			indexStr := key[sliceIndexStart+1 : sliceIndexEnd]
+			index, err := strconv.Atoi(indexStr)
+			if err != nil {
+				continue
+			}
+
+			if len(sliced) == 0 {
+				sliced = make([]any, len(root))
+			}
+
+			sliced[index] = v
+		}
+
+		return sliced
+	}
+
+	_ = fixSlice(m.m)
 }
 
 func newMapValueMapper(dst any) (unmarshalMapper, error) {

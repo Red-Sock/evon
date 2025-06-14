@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -118,3 +119,31 @@ func TestMarshallingToFile(t *testing.T) {
 	}
 
 }
+
+func TestMarshalFromYaml(t *testing.T) {
+	expectedYamlMap := map[string]any{}
+
+	err := yaml.Unmarshal(complexYamlConfig, expectedYamlMap)
+	require.NoError(t, err)
+
+	n, err := MarshalEnv(expectedYamlMap)
+	require.NoError(t, err)
+
+	//TODO check n is correct
+
+	ns := NodeStorage{}
+	ns.AddNode(n)
+
+	evonMap := map[string]any{}
+	err = UnmarshalWithNodes(ns, evonMap,
+		WithSnakeUnmarshal())
+	require.NoError(t, err)
+
+	actualYamlMap, err := yaml.Marshal(evonMap)
+	require.NoError(t, err)
+
+	require.YAMLEq(t, string(complexYamlConfig), string(actualYamlMap))
+
+}
+
+//

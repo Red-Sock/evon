@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 	"unicode"
 
 	"go.redsock.ru/rerrors"
@@ -20,8 +21,7 @@ const (
 )
 
 var (
-	ErrRequiredCustomMarshaller = errors.New("customMarshaller required to be implemented")
-	ErrUnsupportedType          = errors.New("")
+	ErrUnsupportedType = errors.New("")
 )
 
 type customMarshaller interface {
@@ -176,12 +176,15 @@ func marshalSlice(prefix string, ref reflect.Value) (*Node, error) {
 	}
 	return n, nil
 }
+
 func marshalMap(prefix string, ref reflect.Value) (*Node, error) {
 	val := ref.Interface()
 
 	cm, ok := val.(customMarshaller)
 	if !ok {
-		return nil, rerrors.Wrap(ErrRequiredCustomMarshaller, prefix)
+		cm = &defaultMapMarshaller{
+			ref: ref,
+		}
 	}
 
 	innerNodes, err := cm.MarshalEnv(prefix)
@@ -212,12 +215,14 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 		Name: prefix,
 	}
 
-	if prefix != "" {
-		prefix += "_"
-	}
-
 	n.InnerNodes = make([]*Node, 0, ref.NumField())
 
+	switch ref.Type().PkgPath() {
+	case "time":
+		t := ref.Interface().(time.Time)
+		n.Value = t
+		return n, nil
+	}
 	for i := 0; i < ref.NumField(); i++ {
 		field := ref.Type().Field(i)
 		t := toolbox.Coalesce(
@@ -251,6 +256,10 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 
 		if tag == "" {
 			tag = splitToKebab(field.Name)
+		}
+
+		if prefix != "" && tag != "" {
+			tag = "_" + tag
 		}
 		tag = prefix + tag
 
@@ -298,4 +307,36 @@ func (d *defaultSliceMarshaller) MarshalEnv(prefix string) ([]*Node, error) {
 		nodes = append(nodes, n)
 	}
 	return nodes, nil
+}
+
+type defaultMapMarshaller struct {
+	ref reflect.Value
+}
+
+func (d *defaultMapMarshaller) MarshalEnv(prefix string) ([]*Node, error) {
+	keys := d.ref.MapKeys()
+	out := make([]*Node, 0, len(keys))
+
+	for _, key := range keys {
+		value := d.ref.MapIndex(key).Interface()
+
+		pref := prefix
+		if pref != "" {
+			pref += "_"
+		}
+		pref += nameToEvonName(fmt.Sprint(key.Interface()))
+
+		n, err := MarshalEnvWithPrefix(pref, value)
+		if err != nil {
+			return nil, rerrors.Wrapf(err, "error marshalling inside map. Path %s", pref)
+		}
+
+		out = append(out, n)
+	}
+
+	return out, nil
+}
+
+func nameToEvonName(name string) string {
+	return strings.Replace(name, "_", "-", -1)
 }
