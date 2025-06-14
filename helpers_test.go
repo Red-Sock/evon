@@ -22,6 +22,11 @@ type TestObject struct {
 	ChildObjValue ChildTestObject   `evon:"CHILD-OBJ-VALUE"`
 	PointerValue  *int              `evon:"POINTER-VALUE"`
 	Children      []ChildTestObject `evon:"CHILDREN"`
+	UnknownArray  []UntaggedStruct  `evon:"UNKNOWN-ARRAY"`
+}
+
+type UntaggedStruct struct {
+	A int
 }
 
 type ChildTestObject struct {
@@ -60,6 +65,7 @@ func NewTestObject() TestObject {
 				BoolValFlag: false,
 			},
 		},
+		UnknownArray: []UntaggedStruct{{A: 1}},
 	}
 }
 
@@ -121,6 +127,22 @@ func (t *TestObject) ExpectedObjNodes(prefix string) *Node {
 				{
 					Name:  prefix + "CHILDREN_52-BOOL-VALUE",
 					Value: to.Children[1].BoolValFlag,
+				},
+			},
+		})
+
+	out.InnerNodes = append(out.InnerNodes,
+		&Node{
+			Name: prefix + "UNKNOWN-ARRAY",
+			InnerNodes: []*Node{
+				{
+					Name: prefix + "UNKNOWN-ARRAY_[0]",
+					InnerNodes: []*Node{
+						{
+							Name:  prefix + "UNKNOWN-ARRAY_[0]_A",
+							Value: to.UnknownArray[0].A,
+						},
+					},
 				},
 			},
 		})

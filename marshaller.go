@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode"
 
+	"go.redsock.ru/rerrors"
 	"go.redsock.ru/toolbox"
 )
 
@@ -19,12 +20,18 @@ const (
 )
 
 var (
-	ErrSliceRequireMarshaller = errors.New("slices of non basic type require customMarshaller to be implemented")
-	ErrUnsupportedType        = errors.New("")
+	ErrRequiredCustomMarshaller = errors.New("customMarshaller required to be implemented")
+	ErrUnsupportedType          = errors.New("")
 )
 
 type customMarshaller interface {
 	MarshalEnv(prefix string) ([]*Node, error)
+}
+
+type customMarshallerFunc func(prefix string) ([]*Node, error)
+
+func (c customMarshallerFunc) MarshalEnv(prefix string) ([]*Node, error) {
+	return c(prefix)
 }
 
 var StdMarshaller marshaller
@@ -104,27 +111,34 @@ func marshalSlice(prefix string, ref reflect.Value) (*Node, error) {
 	case tp == reflect.Struct:
 		val := ref.Index(0).Interface()
 		_, ok := val.(customMarshaller)
-		if !ok {
-			return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
-		}
-		marshaller = func(prefix string, ref reflect.Value) ([]*Node, error) {
-			out := make([]*Node, 0, ref.Len())
-			for i := range ref.Len() {
-				val = ref.Index(i).Interface()
-				m, ok := val.(customMarshaller)
-				if !ok {
-					return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
+		if ok {
+			marshaller = func(prefix string, ref reflect.Value) ([]*Node, error) {
+				out := make([]*Node, 0, ref.Len())
+				for i := range ref.Len() {
+					val = ref.Index(i).Interface()
+					m, ok := val.(customMarshaller)
+					if !ok {
+						return nil, fmt.Errorf("%w: %s", ErrUnsupportedType, tp.String())
+					}
+
+					node, err := m.MarshalEnv(prefix)
+					if err != nil {
+						return nil, fmt.Errorf("error marshalling slice element: %w", err)
+					}
+
+					out = append(out, node...)
 				}
 
-				node, err := m.MarshalEnv(prefix)
-				if err != nil {
-					return nil, fmt.Errorf("error marshalling slice element: %w", err)
-				}
-
-				out = append(out, node...)
+				return out, nil
 			}
+		} else {
+			marshaller = func(prefix string, ref reflect.Value) ([]*Node, error) {
+				cm := &defaultSliceMarshaller{
+					sliceRef: ref,
+				}
 
-			return out, nil
+				return cm.MarshalEnv(prefix)
+			}
 		}
 
 	case tp == reflect.Interface, tp == reflect.Ptr:
@@ -136,7 +150,9 @@ func marshalSlice(prefix string, ref reflect.Value) (*Node, error) {
 		}
 		cm, ok := val.(customMarshaller)
 		if !ok {
-			return nil, ErrSliceRequireMarshaller
+			cm = &defaultSliceMarshaller{
+				sliceRef: ref,
+			}
 		}
 
 		marshaller = func(prefix string, ref reflect.Value) ([]*Node, error) {
@@ -165,7 +181,7 @@ func marshalMap(prefix string, ref reflect.Value) (*Node, error) {
 
 	cm, ok := val.(customMarshaller)
 	if !ok {
-		return nil, ErrSliceRequireMarshaller
+		return nil, rerrors.Wrap(ErrRequiredCustomMarshaller, prefix)
 	}
 
 	innerNodes, err := cm.MarshalEnv(prefix)
@@ -262,4 +278,24 @@ func splitToKebab(in string) string {
 	}
 
 	return string(out)
+}
+
+type defaultSliceMarshaller struct {
+	sliceRef reflect.Value
+}
+
+func (d *defaultSliceMarshaller) MarshalEnv(prefix string) ([]*Node, error) {
+	nodes := make([]*Node, 0, d.sliceRef.Len())
+
+	for idx := 0; idx < d.sliceRef.Len(); idx++ {
+		v := d.sliceRef.Index(idx)
+		localPref := prefix + fmt.Sprintf("_[%d]", idx)
+		n, err := MarshalEnvWithPrefix(localPref, v.Interface())
+		if err != nil {
+			return nil, rerrors.Wrap(err, "error marshalling inside array", localPref)
+		}
+
+		nodes = append(nodes, n)
+	}
+	return nodes, nil
 }

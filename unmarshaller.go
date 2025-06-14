@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"go.redsock.ru/rerrors"
 )
 
 var (
@@ -124,8 +126,10 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 		if prefix != "" {
 			prefix += "_"
 		}
+
 		if kind == reflect.Pointer {
 			target = target.Elem()
+			return extractMappingForTarget(prefix, target, valueMapping)
 		}
 
 		for i := 0; i < target.NumField(); i++ {
@@ -166,7 +170,9 @@ func extractMappingForTarget(prefix string, target reflect.Value, valueMapping m
 		val := k.Interface()
 		cm, ok := val.(CustomUnmarshaler)
 		if !ok {
-			return ErrCustomMarshallerRequired
+			cm = &defaultSliceUnmarshaller{
+				ref: k,
+			}
 		}
 		valueMapFunc = cm.UnmarshalEnv
 
@@ -250,4 +256,31 @@ func getBasicTypeMappingFunc(kind reflect.Kind, target reflect.Value) NodeMappin
 	default:
 		return nil
 	}
+}
+
+type defaultSliceUnmarshaller struct {
+	ref reflect.Value
+}
+
+func (d *defaultSliceUnmarshaller) UnmarshalEnv(rootSlice *Node) error {
+	typpedSlice := d.ref.Elem()
+	elemType := typpedSlice.Type().Elem()
+
+	for idx, e := range rootSlice.InnerNodes {
+		newElem := reflect.New(elemType).Elem()
+		ns := NodeStorage{}
+
+		e.RemovePrefix(e.Name)
+		ns.AddNode(e)
+
+		ne := newElem.Addr().Interface()
+		err := unmarshal("", ns, ne)
+		if err != nil {
+			return rerrors.Wrapf(err,
+				"error unmarshalling struct inside array. Path: %s_[%d]", rootSlice.Name, idx)
+		}
+
+		typpedSlice.Set(reflect.Append(typpedSlice, newElem))
+	}
+	return nil
 }

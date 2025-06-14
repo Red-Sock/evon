@@ -44,7 +44,8 @@ func ParseToNodes(bytes []byte) NodeStorage {
 	var value any
 
 	start := 0
-	for idx := range bytes {
+	idx := 0
+	for idx = range bytes {
 		switch bytes[idx] {
 		case '=':
 			name = string(bytes[start:idx])
@@ -56,8 +57,15 @@ func ParseToNodes(bytes []byte) NodeStorage {
 				Name:  name,
 				Value: value,
 			})
-
 		}
+	}
+	if bytes[idx] != '\n' {
+		value = string(bytes[start : idx+1])
+		start = idx + 1
+		nodesMap.AddNode(&Node{
+			Name:  name,
+			Value: value,
+		})
 	}
 
 	return nodesMap
@@ -131,5 +139,21 @@ func (s NodeStorage) AddNode(node *Node) {
 		}
 
 		s.AddNode(n)
+	}
+}
+
+func (e *Node) RemovePrefix(prefix string) {
+	if !strings.HasPrefix(e.Name, prefix) {
+		return
+	}
+
+	e.Name = e.Name[len(prefix):]
+
+	if strings.HasPrefix(e.Name, "_") {
+		e.Name = e.Name[1:]
+	}
+
+	for _, n := range e.InnerNodes {
+		n.RemovePrefix(prefix)
 	}
 }
