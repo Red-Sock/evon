@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.redsock.ru/rerrors"
 )
@@ -220,7 +221,7 @@ func (m mapValueMapper) Map(keyPath []string, dst *Node) error {
 		}
 	}
 
-	node[keyPath[len(keyPath)-1]] = dst.Value
+	node[keyPath[len(keyPath)-1]] = m.mapWithType(dst.Value)
 
 	return nil
 }
@@ -275,6 +276,40 @@ func (m mapValueMapper) PostMapping() {
 	}
 
 	_ = fixSlice(m.m)
+}
+
+func (m mapValueMapper) mapWithType(val any) any {
+	s, ok := val.(string)
+	if !ok {
+		return val
+	}
+
+	t := tryParseTime(s)
+	if t != nil {
+		return *t
+	}
+
+	if s == "true" {
+		return true
+	}
+
+	if s == "false" {
+		return false
+	}
+
+	if strings.Contains(s, ".") {
+		fl, err := strconv.ParseFloat(s, 64)
+		if err == nil {
+			return fl
+		}
+	}
+
+	integer, err := strconv.Atoi(s)
+	if err == nil {
+		return integer
+	}
+
+	return val
 }
 
 func newMapValueMapper(dst any) (unmarshalMapper, error) {
@@ -334,6 +369,21 @@ func (d *defaultSliceUnmarshaller) UnmarshalEnv(rootSlice *Node) error {
 		}
 
 		typpedSlice.Set(reflect.Append(typpedSlice, newElem))
+	}
+	return nil
+}
+
+var timeFormats = []string{
+	time.DateOnly,
+	time.DateTime,
+	time.RFC3339Nano,
+}
+
+func tryParseTime(s string) *time.Time {
+	for _, format := range timeFormats {
+		if t, err := time.Parse(format, s); err == nil {
+			return &t
+		}
 	}
 	return nil
 }

@@ -220,7 +220,7 @@ func marshalStruct(prefix string, ref reflect.Value) (*Node, error) {
 	switch ref.Type().PkgPath() {
 	case "time":
 		t := ref.Interface().(time.Time)
-		n.Value = t
+		n.Value = formatTime(t)
 		return n, nil
 	}
 	for i := 0; i < ref.NumField(); i++ {
@@ -339,4 +339,18 @@ func (d *defaultMapMarshaller) MarshalEnv(prefix string) ([]*Node, error) {
 
 func nameToEvonName(name string) string {
 	return strings.Replace(name, "_", "-", -1)
+}
+
+func formatTime(t time.Time) string {
+	if t.Nanosecond() != 0 {
+		return t.Format(time.RFC3339Nano)
+	}
+
+	if t.Hour() != 0 ||
+		t.Minute() != 0 ||
+		t.Second() == 0 {
+		return t.Format(time.DateTime)
+	}
+
+	return t.Format(time.DateOnly)
 }
