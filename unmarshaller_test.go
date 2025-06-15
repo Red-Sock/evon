@@ -13,11 +13,11 @@ func TestUnmarshalToMap(t *testing.T) {
 	require.NoError(t, err)
 
 	expected := map[string]any{
-		"POINTER-VALUE":  "31",
-		"ROOT-INT-VALUE": "3",
+		"POINTER-VALUE":  31,
+		"ROOT-INT-VALUE": 3,
 		"CHILD-OBJ-VALUE": map[string]any{
-			"BOOL-VALUE":   "true",
-			"STRING-VALUE": "12",
+			"BOOL-VALUE":   true,
+			"STRING-VALUE": 12,
 		},
 	}
 	require.Equal(t, expected, targetMap)
@@ -170,11 +170,11 @@ func TestUnmarshalMatreshkaToMap(t *testing.T) {
 	require.NoError(t, err)
 
 	expected := map[string]any{
-		"pointer_value":  "31",
-		"root_int_value": "3",
+		"pointer_value":  31,
+		"root_int_value": 3,
 		"child_obj_value": map[string]any{
-			"bool_value":   "true",
-			"string_value": "12",
+			"bool_value":   true,
+			"string_value": 12,
 		},
 	}
 
