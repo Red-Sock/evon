@@ -286,7 +286,7 @@ func (m mapValueMapper) mapWithType(val any) any {
 
 	t := tryParseTime(s)
 	if t != nil {
-		return *t
+		return customTime(*t)
 	}
 
 	if s == "true" {

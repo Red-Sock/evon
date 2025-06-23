@@ -348,7 +348,7 @@ func formatTime(t time.Time) string {
 
 	if t.Hour() != 0 ||
 		t.Minute() != 0 ||
-		t.Second() == 0 {
+		t.Second() != 0 {
 		return t.Format(time.DateTime)
 	}
 
