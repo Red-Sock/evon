@@ -235,27 +235,20 @@ func (m mapValueMapper) PostMapping() {
 
 		for key, v := range root {
 			innerMap, ok := v.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			sliceIndexStart := strings.Index(key, "[")
-			if sliceIndexStart == -1 {
+			if ok {
 				sl := fixSlice(innerMap)
 				if len(sl) > 0 {
 					root[key] = sl
 				}
+			}
 
+			sliceIndexStart := strings.Index(key, "[")
+			if sliceIndexStart == -1 {
 				continue
 			}
 
 			sliceIndexEnd := strings.Index(key, "]")
 			if sliceIndexStart == -1 {
-				sl := fixSlice(innerMap)
-				if len(sl) > 0 {
-					root[key] = sl
-				}
-
 				continue
 			}
 
