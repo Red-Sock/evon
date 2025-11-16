@@ -134,6 +134,10 @@ func (s NodeStorage) AddNode(node *Node) {
 	s[node.Name] = node
 
 	for _, n := range node.InnerNodes {
+		if n == nil {
+			continue
+		}
+
 		if !strings.HasPrefix(n.Name, rootName) {
 			n.Name = rootName + "_" + n.Name
 		}
